@@ -1,35 +1,49 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 
+// choose device type (A, B)
 #define A
 //#define B
-#define DEV
-//#define PROD
 
+// choose test type (DEV, PROD)
+//#define DEV
+#define PROD
+
+// Declare topic constant
 #ifdef A
-  const char* pubTopic = "state/score/A";
+  const char* PRESS_TOPIC = "A/press";
+  const char* SCORE_TOPIC = "A/score";
+  const char* READY_TOPIC = "A/ready";
+  const char* BLINK_TOPIC = "A/blink";
 #endif
 #ifdef B
-  const char* pubTopic = "state/score/B";
-#endif
-#ifdef DEV
-  const char* ssid = "G199_IoT_2.4G";
-  const char* password = "smart10_199@";
-  const char* mqttServer = "10.244.104.50";
-#endif
-#ifdef PROD
-  const char* ssid = "2-10_festival";
-  const char* password = "Y0uwou1d!ntgue$$th1s";
-  const char* mqttServer = "192.168.4.1";
+  const char* PRESS_TOPIC = "B/press";
+  const char* SCORE_TOPIC = "B/score";
+  const char* READY_TOPIC = "B/ready";
+  const char* BLINK_TOPIC = "B/blink";
 #endif
 
+// Declare network info
+#ifdef DEV
+  const char* SSID = "G199_IoT_2.4G";
+  const char* PASSWORD = "smart10_199@";
+  const char* MQTT_SERVER = "10.244.104.50";
+#endif
+#ifdef PROD
+  const char* SSID = "2-10_festival";
+  const char* PASSWORD = "Y0uwou1d!ntgue$$th1s";
+  const char* MQTT_SERVER = "192.168.4.1";
+#endif
+
+// Declare I/O Pin
 const uint8_t buttonPin = 12;
 const uint8_t ledPin = 14;
 
-uint8_t score = 0;
-uint32_t currentTick = 0;
-bool isReady = false;
-bool isOn = false;
+uint8_t score = 0; // variable for blink interval
+uint32_t tick = 0;
+bool isBlink = false; // subcribed from MQTT
+
+bool ledState = false; // variable to prevent useless output in blink
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -38,15 +52,16 @@ void setupWifi() {
   delay(10);
   Serial.println();
   Serial.print("Connecting to ");
-  Serial.println(ssid);
+  Serial.println(SSID);
 
-  WiFi.begin(ssid, password);
+  WiFi.begin(SSID, PASSWORD);
+
+  Serial.print("WiFi Status: ");
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    Serial.print("WiFi Status: ");
     Serial.print(WiFi.status());
-    Serial.println();
+    Serial.print(" / ");
   }
 
   Serial.println("WiFi connected");
@@ -66,39 +81,49 @@ void callback(char* topic, byte* message, unsigned int length) {
   }
   Serial.println();
 
-  if (String(topic) == "state/ready") {
-    Serial.print("Published: state/ready=");
+  // subcribe {device}/blink
+  if (String(topic) == BLINK_TOPIC) {
+    Serial.print("Published: ");
+    Serial.print(BLINK_TOPIC);
+    Serial.print(" = ");
 
     if(messageTemp == "true"){
-      Serial.print("true");
-      isReady = true;
+      Serial.println("true");
+      isBlink = true;
     }
     else if(messageTemp == "false"){
-      Serial.print("false");
-      isReady = false;
+      Serial.println("false");
+      isBlink = false;
     }
   }
 
-  if (String(topic) == pubTopic) {
+  // subcribe {device}/score
+  if (String(topic) == SCORE_TOPIC) {
     Serial.print("Published: ");
-    Serial.print(pubTopic);
+    Serial.print(SCORE_TOPIC);
     Serial.print("=");
 
-    if(messageTemp == "0"){
-      Serial.print("0");
+    if (messageTemp == "0") {
       score = 0;
+      Serial.println("0");
     }
-    else if(messageTemp == "1"){
-      Serial.print("1");
+    else if (messageTemp == "1") {
       score = 1;
+      Serial.println("1");
     }
-    else if(messageTemp == "2"){
-      Serial.print("2");
+    else if (messageTemp == "2") {
       score = 2;
+      Serial.println("2");
     }
-    else if(messageTemp == "3"){
-      Serial.print("3");
+    else if (messageTemp == "3") {
       score = 3;
+      Serial.println("3");
+    }
+    else {
+      Serial.print("Exception: ");
+      Serial.print(SCORE_TOPIC);
+      Serial.print(" is invalid (not within 0~3), value = ");
+      Serial.println(messageTemp);
     }
   }
 }
@@ -108,10 +133,12 @@ void connectMQTT() {
     Serial.print("Attempting MQTT connection... ");
     if (client.connect("ESP32Client")) {
       Serial.println("Connected");
-      client.subscribe("state/ready");
-      client.subscribe(pubTopic);
+      client.publish(READY_TOPIC, "true");
+      client.publish(PRESS_TOPIC, "false");
+      client.subscribe(BLINK_TOPIC);
+      client.subscribe(SCORE_TOPIC);
     } else {
-      Serial.print("failed, rc=");
+      Serial.print("Failed, rc=");
       Serial.print(client.state());
       Serial.println(". Try again within 3s...");
       delay(3000);
@@ -126,12 +153,14 @@ void setup(){
 
   setupWifi();
 
-  client.setServer(mqttServer, 1883);
+  client.setServer(MQTT_SERVER, 1883);
   client.setCallback(callback);
   
   connectMQTT();
 
-  client.publish(pubTopic, {"0"});
+  // publish device status
+  client.publish(READY_TOPIC, "true");
+  client.publish(PRESS_TOPIC, "false");
 }
 
 void loop(){
@@ -140,37 +169,33 @@ void loop(){
   }
   client.loop();
 
-  // get pushed
-  if (isReady == true && digitalRead(buttonPin)){
-    // ready initialize
-    isReady = false;
-    client.publish("state/ready", "false");
+  if (isBlink == true){
+    // publish press
+    if (digitalRead(buttonPin)) {
+      client.publish(PRESS_TOPIC, "true");
 
-    // score publication
-    if (blink == 0) {
-      blink = 1;
-      client.publish(pubTopic, {"1"});
+      // prevent press
+      Serial.println("Pressed. Solid 5s...");
+      digitalWrite(ledPin, HIGH);
+      delay(5000);
+      digitalWrite(ledPin, LOW);
+      client.publish(PRESS_TOPIC, "false");
+      Serial.println("Switch is available.");
     }
-    else if (blink == 1) {
-      blink = 2;
-      client.publish(pubTopic, {"2"});
-    }
-    else if (blink == 2) {
-      blink = 3;
-      client.publish(pubTopic, {"3"});
-    }
-    else if (blink == 3) {
-      blink = 0;
-      client.publish(pubTopic, {"0"});
-    }
-  }
 
-  // blink
-  if (millis()-currentTick > 1000/pow(2, blink)){
-    digitalWrite(ledPin, HIGH);
-  }
-  if (millis()-currentTick > 2000/pow(2, blink)){
-    currentTick = millis();
-    digitalWrite(ledPin, LOW);
+    // blink while avaliable
+    if (millis()-tick > 1000/pow(2, score)){
+      if (ledState == false){
+        Serial.println("blink: on");
+        digitalWrite(ledPin, HIGH);
+        ledState = true;
+      }
+    }
+    if (millis()-tick > 2000/pow(2, score)){
+      tick = millis();
+      digitalWrite(ledPin, LOW);
+      Serial.println("blink: off");
+      ledState = false;
+    }
   }
 }

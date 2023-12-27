@@ -1,13 +1,10 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include "env.h"
 
 // choose device type (A, B)
 #define A
 //#define B
-
-// choose test type (DEV, PROD)
-//#define DEV
-#define PROD
 
 // Declare topic constant
 #ifdef A
@@ -21,18 +18,6 @@
   const char* SCORE_TOPIC = "B/score";
   const char* READY_TOPIC = "B/ready";
   const char* BLINK_TOPIC = "B/blink";
-#endif
-
-// Declare network info
-#ifdef DEV
-  const char* SSID = "G199_IoT_2.4G";
-  const char* PASSWORD = "smart10_199@";
-  const char* MQTT_SERVER = "10.244.104.50";
-#endif
-#ifdef PROD
-  const char* SSID = "2-10_festival";
-  const char* PASSWORD = "Y0uwou1d!ntgue$$th1s";
-  const char* MQTT_SERVER = "192.168.4.1";
 #endif
 
 // Declare I/O Pin

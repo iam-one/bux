@@ -1,6 +1,12 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include "env.h"
+// pls declare network info in env.h
+/* example
+const char* SSID = "ssid";
+const char* PASSWORD = "passwd";
+const char* MQTT_SERVER = "hostip";
+*/
 
 // choose device type (A, B)
 #define A

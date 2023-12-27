@@ -6,8 +6,8 @@
 //#define B
 
 // choose test type (DEV, PROD)
-//#define DEV
-#define PROD
+#define DEV
+//#define PROD
 
 // Declare topic constant
 #ifdef A
@@ -49,35 +49,31 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 
 void setupWifi() {
-  delay(10);
-  Serial.println();
   Serial.print("Connecting to ");
   Serial.println(SSID);
 
   WiFi.begin(SSID, PASSWORD);
 
   Serial.print("WiFi Status: ");
-
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(WiFi.status());
     Serial.print(" / ");
   }
-
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
+  Serial.println("Connected.");
+  Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 }
 
 void callback(char* topic, byte* message, unsigned int length) {
-  Serial.print("Message arrived on topic: ");
+  Serial.print("Update on subscribed topic: ");
   Serial.print(topic);
-  Serial.print(". Message: ");
-  String messageTemp;
+  Serial.print("=");
+  String buffer;
 
   for (int i = 0; i < length; i++) {
     Serial.print((char)message[i]);
-    messageTemp += (char)message[i];
+    buffer += (char)message[i];
   }
   Serial.println();
 
@@ -87,14 +83,9 @@ void callback(char* topic, byte* message, unsigned int length) {
     Serial.print(BLINK_TOPIC);
     Serial.print(" = ");
 
-    if(messageTemp == "true"){
-      Serial.println("true");
-      isBlink = true;
-    }
-    else if(messageTemp == "false"){
-      Serial.println("false");
-      isBlink = false;
-    }
+    if(buffer == "true") isBlink = true;
+    else if(buffer == "false") isBlink = false;
+    Serial.println(isBlink);
   }
 
   // subcribe {device}/score
@@ -103,28 +94,17 @@ void callback(char* topic, byte* message, unsigned int length) {
     Serial.print(SCORE_TOPIC);
     Serial.print("=");
 
-    if (messageTemp == "0") {
-      score = 0;
-      Serial.println("0");
-    }
-    else if (messageTemp == "1") {
-      score = 1;
-      Serial.println("1");
-    }
-    else if (messageTemp == "2") {
-      score = 2;
-      Serial.println("2");
-    }
-    else if (messageTemp == "3") {
-      score = 3;
-      Serial.println("3");
-    }
+    if (buffer == "0") score = 0;
+    else if (buffer == "1") score = 1;
+    else if (buffer == "2") score = 2;
+    else if (buffer == "3") score = 3;
     else {
       Serial.print("Exception: ");
       Serial.print(SCORE_TOPIC);
       Serial.print(" is invalid (not within 0~3), value = ");
-      Serial.println(messageTemp);
+      Serial.println(buffer);
     }
+    Serial.println(score);
   }
 }
 
@@ -164,9 +144,7 @@ void setup(){
 }
 
 void loop(){
-  if (client.connect("ESP32Client")) {
-    connectMQTT();
-  }
+  if (client.connect("ESP32Client")) connectMQTT();
   client.loop();
 
   if (isBlink == true){

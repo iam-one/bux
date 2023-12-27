@@ -2,21 +2,23 @@
 #include <PubSubClient.h>
 
 // choose device type (A, B)
-#define A
-//#define B
+//#define A
+#define B
 
 // choose test type (DEV, PROD)
-#define DEV
-//#define PROD
+//#define DEV
+#define PROD
 
 // Declare topic constant
 #ifdef A
+  const char* CLIENT_NAME = "ESP32-A";
   const char* PRESS_TOPIC = "A/press";
   const char* SCORE_TOPIC = "A/score";
   const char* READY_TOPIC = "A/ready";
   const char* BLINK_TOPIC = "A/blink";
 #endif
 #ifdef B
+  const char* CLIENT_NAME = "ESP32-B";
   const char* PRESS_TOPIC = "B/press";
   const char* SCORE_TOPIC = "B/score";
   const char* READY_TOPIC = "B/ready";
@@ -111,7 +113,7 @@ void callback(char* topic, byte* message, unsigned int length) {
 void connectMQTT() {
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection... ");
-    if (client.connect("ESP32Client")) {
+    if (client.connect(CLIENT_NAME)) {
       Serial.println("Connected");
       client.publish(READY_TOPIC, "true");
       client.publish(PRESS_TOPIC, "false");

@@ -2,8 +2,8 @@
 #include <PubSubClient.h>
 
 // choose device type (A, B)
-//#define A
-#define B
+#define A
+//#define B
 
 // choose test type (DEV, PROD)
 //#define DEV
@@ -128,6 +128,7 @@ void connectMQTT() {
   }
 }
 
+uint32_t next = 0;
 void setup(){
   Serial.begin(115200);
   pinMode(buttonPin, INPUT);
@@ -146,36 +147,30 @@ void setup(){
 }
 
 void loop(){
-  if (client.connect("ESP32Client")) connectMQTT();
+  connectMQTT();
   client.loop();
+  if (WiFi.status() != WL_CONNECTED) {
+    setupWifi();
+  }
 
-  if (isBlink == true){
-    // publish press
-    if (digitalRead(buttonPin)) {
-      client.publish(PRESS_TOPIC, "true");
+  // publish press
+  if (millis() > next) {
+    client.publish(PRESS_TOPIC,digitalRead(buttonPin) ? "true" : "false");
+    next = millis() + 100;
+  }
 
-      // prevent press
-      Serial.println("Pressed. Solid 5s...");
+  // blink while avaliable
+  if (millis()-tick > 1000/pow(2, score)){
+    if (ledState == false && isBlink){
+      Serial.println("blink: on");
       digitalWrite(ledPin, HIGH);
-      delay(5000);
-      digitalWrite(ledPin, LOW);
-      client.publish(PRESS_TOPIC, "false");
-      Serial.println("Switch is available.");
+      ledState = true;
     }
-
-    // blink while avaliable
-    if (millis()-tick > 1000/pow(2, score)){
-      if (ledState == false){
-        Serial.println("blink: on");
-        digitalWrite(ledPin, HIGH);
-        ledState = true;
-      }
-    }
-    if (millis()-tick > 2000/pow(2, score)){
-      tick = millis();
-      digitalWrite(ledPin, LOW);
-      Serial.println("blink: off");
-      ledState = false;
-    }
+  }
+  if (millis()-tick > 2000/pow(2, score)){
+    tick = millis();
+    digitalWrite(ledPin, LOW);
+    Serial.println("blink: off");
+    ledState = false;
   }
 }
